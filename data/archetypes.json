@@ -1,0 +1,7 @@
+[
+  {"name": "Il curioso indeciso", "traits": ["Interesse iniziale", "Domande dettagliate", "Indecisione"]},
+  {"name": "Il cliente orientato al prezzo", "traits": ["Sensibile al prezzo", "Richiede sconti", "Confronti competitor"]},
+  {"name": "L’esperto scettico", "traits": ["Esperienza pregressa", "Critico", "Richiede prove"]},
+  {"name": "Il cliente urgente", "traits": ["Necessità immediata", "Soluzione rapida", "Disponibile a spendere"]},
+  {"name": "Il cliente emotivo", "traits": ["Decisioni emotive", "Empatico", "Cerca rassicurazioni"]}
+]

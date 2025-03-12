@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulatore di Vendita</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Simulatore di Vendita</h1>
+
+    <label for="sales-person">Venditore:</label>
+    <select id="sales-person"></select>
+
+    <label for="archetype">Cliente:</label>
+    <select id="archetype"></select>
+
+    <label for="business-line">Prodotto:</label>
+    <select id="business-line">
+        <option value="Badanti">Badanti</option>
+        <option value="Pet sitter">Pet sitter</option>
+        <option value="Babysitter">Babysitter</option>
+    </select>
+
+    <button onclick="startChat()">Inizia</button>
+
+    <div id="chat-box"></div>
+    <textarea id="user-message" placeholder="Scrivi il tuo messaggio" rows="4" cols="50"></textarea>
+    <button onclick="sendMessage()">Invia</button>
+
+    <button onclick="endChat()">Termina e feedback</button>
+    <script>
+        async function populateDropdowns() {
+            const salesRes = await fetch('/sales_team');
+            const salesTeam = await salesRes.json();
+            const salesSelect = document.getElementById('sales-person');
+            salesTeam.forEach(person => {
+                const option = document.createElement('option');
+                option.textContent = person;
+                salesSelect.appendChild(option);
+            });
+
+            const archetypeRes = await fetch('/archetypes');
+            const archetypes = await archetypeRes.json();
+            const archetypeSelect = document.getElementById('archetype');
+            archetypes.forEach(arc => {
+                const option = document.createElement('option');
+                option.textContent = arc.name;
+                archetypeSelect.appendChild(option);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', populateDropdowns);
+
+        async function startChat() {
+    const salesPerson = document.getElementById('sales-person').value;
+    const archetype = document.getElementById('archetype').value;
+    const businessLine = document.getElementById('business-line').value;
+
+    const response = await fetch('/start_chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sales_person: salesPerson, archetype: archetype, business_line: businessLine})
+    });
+
+    const result = await response.json();
+    sessionStorage.setItem("session_id", result.session_id);
+    document.getElementById('chat-box').innerHTML = `
+        <p><em>Sessione iniziata</em></p>
+        <p><strong>Cliente:</strong> ${result.reply}</p>
+    `;
+}
+
+
+async function sendMessage() {
+    const session_id = sessionStorage.getItem("session_id");
+    const userMessage = document.getElementById("user-message").value;
+
+    const response = await fetch('/send_message', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id, message: userMessage})
+    });
+
+    const result = await response.json();
+
+    document.getElementById('chat-box').innerHTML += `<p><strong>Tu:</strong> ${userMessage}</p>`;
+    document.getElementById('chat-box').innerHTML += `<p><strong>Cliente:</strong> ${result.reply}</p>`;
+}
+
+async function endChat() {
+    const session_id = sessionStorage.getItem("session_id");
+    const response = await fetch('/end_chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({session_id})
+    });
+
+    const result = await response.json();
+    document.getElementById('chat-box').innerHTML += `<p><strong>Feedback:</strong> ${result.feedback}</p>`;
+}
+
+    </script>
+</body>
+</html>
