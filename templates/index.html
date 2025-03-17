@@ -61,102 +61,110 @@
         document.addEventListener('DOMContentLoaded', populateDropdowns);
 
         async function startChat() {
-    const salesPerson = document.getElementById('sales-person').value;
-    const archetype = document.getElementById('archetype').value;
-    const businessLine = document.getElementById('business-line').value;
+            const salesPerson = document.getElementById('sales-person').value;
+            const archetype = document.getElementById('archetype').value;
+            const businessLine = document.getElementById('business-line').value;
 
-    const response = await fetch('/start_chat', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({sales_person: salesPerson, archetype: archetype, business_line: businessLine})
-    });
+            document.getElementById('chat-box').innerHTML += `<p><em>Costruzione sessione di vendita...</em></p>`;
 
-    const result = await response.json();
-    sessionStorage.setItem("session_id", result.session_id);
-    document.getElementById('chat-box').innerHTML = `
-        <p><em>Sessione di vendita iniziata</em></p>
-        <p><strong>Cliente:</strong> ${result.reply}</p>
-    `;
-}
+            const response = await fetch('/start_chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({sales_person: salesPerson, archetype: archetype, business_line: businessLine})
+            });
 
 
-async function sendMessage() {
-    const session_id = sessionStorage.getItem("session_id");
-    const userMessage = document.getElementById("user-message").value;
+            const result = await response.json();
+            sessionStorage.setItem("session_id", result.session_id);
+            document.getElementById('chat-box').innerHTML = `
+                <p><em>Sessione di vendita iniziata</em></p>
+                <p><strong>Cliente:</strong> ${result.reply}</p>
+            `;
+        }
 
-    if (!userMessage) {
-        alert("Per favore, scrivi un messaggio prima di inviare.");
-        return;
+
+    async function sendMessage() {
+        const session_id = sessionStorage.getItem("session_id");
+        const userMessage = document.getElementById("user-message").value;
+
+        if (!userMessage) {
+            alert("Per favore, scrivi un messaggio prima di inviare.");
+            return;
+        }
+
+        document.getElementById('chat-box').innerHTML += `<p><em>Elaborazione risposta...</em></p>`;
+
+        const response = await fetch('/send_message', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({session_id, message: userMessage})
+        });
+
+        const result = await response.json();
+
+        document.getElementById('chat-box').innerHTML += `<p><strong>Tu:</strong> ${userMessage}</p>`;
+        document.getElementById('chat-box').innerHTML += `<p><strong>Cliente:</strong> ${result.reply}</p>`;
+        document.getElementById('user-message').value = '';
     }
 
-    const response = await fetch('/send_message', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({session_id, message: userMessage})
-    });
+    async function endChat() {
+        const session_id = sessionStorage.getItem("session_id");
 
-    const result = await response.json();
+        document.getElementById('chat-box').innerHTML += `<p><em>Elaborazione feedback...</em></p>`;
 
-    document.getElementById('chat-box').innerHTML += `<p><strong>Tu:</strong> ${userMessage}</p>`;
-    document.getElementById('chat-box').innerHTML += `<p><strong>Cliente:</strong> ${result.reply}</p>`;
-    document.getElementById('user-message').value = '';
-}
+        const response = await fetch('/end_chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({session_id})
+        });
 
-async function endChat() {
-    const session_id = sessionStorage.getItem("session_id");
-    const response = await fetch('/end_chat', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({session_id})
-    });
-
-    const result = await response.json();
-    document.getElementById('chat-box').innerHTML += `<p><strong>Feedback:</strong> ${result.feedback}</p>`;
-}
-
-let mediaRecorder;
-let audioChunks = [];
-
-async function startRecording() {
-    if (!navigator.mediaDevices) {
-        alert("Browser non supporta la registrazione audio.");
-        return;
+        const result = await response.json();
+        document.getElementById('chat-box').innerHTML += `<p><strong>Feedback:</strong> ${result.feedback}</p>`;
     }
 
-    audioChunks = [];
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    let mediaRecorder;
+    let audioChunks = [];
 
-    mediaRecorder.ondataavailable = event => {
-        audioChunks.push(event.data);
-    };
+    async function startRecording() {
+        if (!navigator.mediaDevices) {
+            alert("Browser non supporta la registrazione audio.");
+            return;
+        }
 
-    mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        sendAudio(audioBlob);
-    };
+        audioChunks = [];
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
 
-    mediaRecorder.start();
-    document.getElementById('recordingStatus').innerText = "Registrazione in corso...";
-}
+        mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+        };
 
-function stopRecording() {
-    mediaRecorder.stop();
-    document.getElementById('recordingStatus').innerText = "Registrazione fermata.";
-}
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            sendAudio(audioBlob);
+        };
 
-async function sendAudio(audioBlob) {
-    const formData = new FormData();
-    formData.append('audio', audioBlob, 'audio.webm');
+        mediaRecorder.start();
+        document.getElementById('recordingStatus').innerText = "Registrazione in corso...";
+    }
 
-    const response = await fetch('/audio_transcribe', {
-        method: 'POST',
-        body: formData
-    });
+    function stopRecording() {
+        mediaRecorder.stop();
+        document.getElementById('recordingStatus').innerText = "Registrazione fermata.";
+    }
 
-    const result = await response.json();
-    document.getElementById('user-message').value = result.transcript;
-}
+    async function sendAudio(audioBlob) {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'audio.webm');
+
+        const response = await fetch('/audio_transcribe', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        document.getElementById('user-message').value = result.transcript;
+    }
     </script>
 </body>
 </html>
