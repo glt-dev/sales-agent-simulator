@@ -24,10 +24,19 @@
     <button onclick="startChat()">Inizia</button>
 
     <div id="chat-box"></div>
-    <textarea id="user-message" placeholder="Scrivi il tuo messaggio" rows="4" cols="50"></textarea>
-    <button onclick="sendMessage()">Invia</button>
+    <div>
+    <textarea id="user-message" placeholder="Scrivi la tua risposta" rows="4" cols="50"></textarea>
+    <div>Oppure</div>
+        <div>
+        <button onclick="startRecording()">🎤 Registra Risposta</button>
+        <button onclick="stopRecording()">⏹️ Ferma Registrazione</button>
+        <span id="recordingStatus"></span>
+    </div>
+        <br>
+        <button onclick="sendMessage()">Invia Risposta</button>
+    <button onclick="endChat()">Termina e ricevi feedback</button>
+    </div>
 
-    <button onclick="endChat()">Termina e feedback</button>
     <script>
         async function populateDropdowns() {
             const salesRes = await fetch('/sales_team');
@@ -65,7 +74,7 @@
     const result = await response.json();
     sessionStorage.setItem("session_id", result.session_id);
     document.getElementById('chat-box').innerHTML = `
-        <p><em>Sessione iniziata</em></p>
+        <p><em>Sessione di vendita iniziata</em></p>
         <p><strong>Cliente:</strong> ${result.reply}</p>
     `;
 }
@@ -74,6 +83,11 @@
 async function sendMessage() {
     const session_id = sessionStorage.getItem("session_id");
     const userMessage = document.getElementById("user-message").value;
+
+    if (!userMessage) {
+        alert("Per favore, scrivi un messaggio prima di inviare.");
+        return;
+    }
 
     const response = await fetch('/send_message', {
         method: 'POST',
@@ -85,6 +99,7 @@ async function sendMessage() {
 
     document.getElementById('chat-box').innerHTML += `<p><strong>Tu:</strong> ${userMessage}</p>`;
     document.getElementById('chat-box').innerHTML += `<p><strong>Cliente:</strong> ${result.reply}</p>`;
+    document.getElementById('user-message').value = '';
 }
 
 async function endChat() {
@@ -99,6 +114,49 @@ async function endChat() {
     document.getElementById('chat-box').innerHTML += `<p><strong>Feedback:</strong> ${result.feedback}</p>`;
 }
 
+let mediaRecorder;
+let audioChunks = [];
+
+async function startRecording() {
+    if (!navigator.mediaDevices) {
+        alert("Browser non supporta la registrazione audio.");
+        return;
+    }
+
+    audioChunks = [];
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+    mediaRecorder.ondataavailable = event => {
+        audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        sendAudio(audioBlob);
+    };
+
+    mediaRecorder.start();
+    document.getElementById('recordingStatus').innerText = "Registrazione in corso...";
+}
+
+function stopRecording() {
+    mediaRecorder.stop();
+    document.getElementById('recordingStatus').innerText = "Registrazione fermata.";
+}
+
+async function sendAudio(audioBlob) {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'audio.webm');
+
+    const response = await fetch('/audio_transcribe', {
+        method: 'POST',
+        body: formData
+    });
+
+    const result = await response.json();
+    document.getElementById('user-message').value = result.transcript;
+}
     </script>
 </body>
 </html>
